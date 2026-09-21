@@ -3,12 +3,14 @@ package com.example.secscanner
 import android.content.Context
 import android.os.Build
 import android.view.WindowManager
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.function.Consumer
 
-class ScreenRecordingMonitor(private val context: Context) {
+class ScreenRecordingMonitor(private val context: Context) : DefaultLifecycleObserver {
     private val windowManager = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val _isRecording = MutableStateFlow(false)
     val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
@@ -19,7 +21,7 @@ class ScreenRecordingMonitor(private val context: Context) {
         }
     }
 
-    fun startMonitoring() {
+    override fun onStart(owner: LifecycleOwner) {
         if (Build.VERSION.SDK_INT >= 35) {
             try {
                 windowManager.addScreenRecordingCallback(context.mainExecutor, callback)
@@ -29,7 +31,7 @@ class ScreenRecordingMonitor(private val context: Context) {
         }
     }
 
-    fun stopMonitoring() {
+    override fun onStop(owner: LifecycleOwner) {
         if (Build.VERSION.SDK_INT >= 35) {
             try {
                 windowManager.removeScreenRecordingCallback(callback)

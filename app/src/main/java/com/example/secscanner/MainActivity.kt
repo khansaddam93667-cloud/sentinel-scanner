@@ -1,6 +1,7 @@
 package com.example.secscanner
 
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -29,9 +30,24 @@ class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
+        lifecycle.addObserver(viewModel.screenMonitor)
+
         setContent {
+
+            val isSecureModeEnabled by viewModel.isSecureModeEnabled.collectAsState()
+
+            LaunchedEffect(isSecureModeEnabled) {
+                if (isSecureModeEnabled) {
+                    window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
+
             SecScannerTheme {
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -45,13 +61,35 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
+    val isSecureModeEnabled by viewModel.isSecureModeEnabled.collectAsState()
+
     val isRecording by viewModel.isScreenRecording.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val reports by viewModel.appReports.collectAsState()
     val masvsReports by viewModel.masvsReports.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
+
         StatusCard(isRecording)
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Secure Mode (Block Screenshots)",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Switch(
+                checked = isSecureModeEnabled,
+                onCheckedChange = { viewModel.toggleSecureMode(it) }
+            )
+        }
+
 
         Button(
             onClick = { viewModel.scanDevice() },
