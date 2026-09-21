@@ -15,7 +15,7 @@ class ScreenRecordingMonitor(private val context: Context) {
 
     private val callback = Consumer<Int> { state ->
         if (Build.VERSION.SDK_INT >= 35) {
-            _isRecording.value = state == WindowManager.SCREEN_RECORDING_STATE_ACTIVE
+            _isRecording.value = state == 1 // WindowManager.SCREEN_RECORDING_STATE_ACTIVE is 1
         }
     }
 
