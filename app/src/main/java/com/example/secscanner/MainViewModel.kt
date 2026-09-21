@@ -11,10 +11,14 @@ import kotlinx.coroutines.launch
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val scannerEngine = ScannerEngine(application.packageManager)
+    private val masvsScannerEngine = MasvsScannerEngine(application)
     private val screenMonitor = ScreenRecordingMonitor(application)
 
     private val _appReports = MutableStateFlow<List<AppRiskReport>>(emptyList())
     val appReports: StateFlow<List<AppRiskReport>> = _appReports.asStateFlow()
+
+    private val _masvsReports = MutableStateFlow<List<MasvsControlResult>>(emptyList())
+    val masvsReports: StateFlow<List<MasvsControlResult>> = _masvsReports.asStateFlow()
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
@@ -36,6 +40,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val reports = scannerEngine.scanApps()
                 _appReports.value = reports
+
+                val masvsResults = masvsScannerEngine.runChecks()
+                _masvsReports.value = masvsResults
             } finally {
                 _isScanning.value = false
             }
