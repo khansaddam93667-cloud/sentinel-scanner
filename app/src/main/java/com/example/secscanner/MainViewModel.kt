@@ -12,7 +12,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val scannerEngine = ScannerEngine(application.packageManager)
     private val masvsScannerEngine = MasvsScannerEngine(application)
-    private val screenMonitor = ScreenRecordingMonitor(application)
+    val screenMonitor = ScreenRecordingMonitor(application)
 
     private val _appReports = MutableStateFlow<List<AppRiskReport>>(emptyList())
     val appReports: StateFlow<List<AppRiskReport>> = _appReports.asStateFlow()
@@ -25,13 +25,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val isScreenRecording = screenMonitor.isRecording
 
-    init {
-        screenMonitor.startMonitoring()
-    }
+    private val _isSecureModeEnabled = MutableStateFlow(false)
+    val isSecureModeEnabled: StateFlow<Boolean> = _isSecureModeEnabled.asStateFlow()
 
-    override fun onCleared() {
-        super.onCleared()
-        screenMonitor.stopMonitoring()
+    fun toggleSecureMode(enabled: Boolean) {
+        _isSecureModeEnabled.value = enabled
     }
 
     fun scanDevice() {
