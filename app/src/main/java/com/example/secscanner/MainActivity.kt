@@ -48,6 +48,7 @@ fun MainScreen(viewModel: MainViewModel) {
     val isRecording by viewModel.isScreenRecording.collectAsState()
     val isScanning by viewModel.isScanning.collectAsState()
     val reports by viewModel.appReports.collectAsState()
+    val masvsReports by viewModel.masvsReports.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         StatusCard(isRecording)
@@ -68,6 +69,29 @@ fun MainScreen(viewModel: MainViewModel) {
             }
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
+                if (masvsReports.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = "Baseline Security Controls",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+                    items(masvsReports) { report ->
+                        MasvsReportItem(report)
+                    }
+                    item {
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(
+                            text = "App Risks",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp)
+                        )
+                    }
+                }
+
                 items(reports) { report ->
                     AppReportItem(report)
                 }
@@ -109,6 +133,50 @@ fun StatusCard(isRecording: Boolean) {
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
+        }
+    }
+}
+
+@Composable
+fun MasvsReportItem(report: MasvsControlResult) {
+    val isPass = report.result is MasvsResult.Pass
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = report.controlName,
+                    fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f)
+                )
+                Badge(
+                    containerColor = if (isPass) Color.Green else Color.Red
+                ) {
+                    Text(
+                        text = if (isPass) "PASS" else "FAIL",
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            if (!isPass) {
+                Text(
+                    text = (report.result as MasvsResult.Fail).reason,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Red,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
         }
     }
 }
