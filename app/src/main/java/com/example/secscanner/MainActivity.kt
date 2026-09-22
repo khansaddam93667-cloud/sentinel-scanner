@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Terminal
 import android.content.pm.PackageInfo
 import androidx.compose.runtime.DisposableEffect
 import android.content.Intent
@@ -102,20 +103,6 @@ fun MainScreen(viewModel: MainViewModel) {
     var currentTab by remember { mutableStateOf(0) }
 
     Scaffold(
-        floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { if (!isScanning) viewModel.scanDevice() },
-                content = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (isScanning) {
-                            CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                        }
-                        Text(if (isScanning) "Scanning..." else "Run Scan")
-                    }
-                }
-            )
-        },
         bottomBar = {
             NavigationBar {
                 NavigationBarItem(
@@ -148,7 +135,7 @@ fun MainScreen(viewModel: MainViewModel) {
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when (currentTab) {
                 0 -> DashboardTab(healthScore, isRecording, isSecureModeEnabled, viewModel, isScanning, masvsReports)
-                1 -> AuditorTab(reports)
+                1 -> AuditorTab(reports, isScanning, { viewModel.scanDevice() })
                 2 -> DeviceRaspTab()
                 3 -> ToolsTab(viewModel)
             }
@@ -195,7 +182,7 @@ fun DashboardTab(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp)
                 ) {
                     if (masvsReports.isNotEmpty()) {
                         val groupedReports = masvsReports.groupBy { report ->
@@ -245,22 +232,32 @@ fun DashboardTab(
                 }
             }
         }
-
 @Composable
-fun AuditorTab(reports: List<AppRiskReport>) {
+
+fun AuditorTab(reports: List<AppRiskReport>, isScanning: Boolean, onScanDevice: () -> Unit) {
     var searchQuery by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        TextField(
-            value = searchQuery,
-            onValueChange = { searchQuery = it },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            placeholder = { Text("Search apps...") },
-            singleLine = true
-        )
-
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.weight(1f).padding(end = 8.dp),
+                placeholder = { Text("Search apps...") },
+                singleLine = true
+            )
+            Button(onClick = { if (!isScanning) onScanDevice() }) {
+                if (isScanning) {
+                    CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(if (isScanning) "Scanning..." else "Run Scan")
+            }
+        }
         val filteredReports = reports.filter {
             it.appName.contains(searchQuery, ignoreCase = true) ||
             it.packageName.contains(searchQuery, ignoreCase = true)
@@ -268,7 +265,7 @@ fun AuditorTab(reports: List<AppRiskReport>) {
 
         LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 120.dp)
+                    contentPadding = PaddingValues(bottom = 80.dp)
         ) {
             items(filteredReports) { report ->
                 AppReportItem(report)
@@ -644,6 +641,15 @@ fun ToolsTab(viewModel: MainViewModel) {
             }
             item {
                 BatteryTelemetryCard()
+            }
+            item {
+                JwtInspectorCard()
+            }
+            item {
+                SslCertAuditorCard()
+            }
+            item {
+                HashGeneratorCard()
             }
             item {
                 OverlaySentryCard(overlayApps)
