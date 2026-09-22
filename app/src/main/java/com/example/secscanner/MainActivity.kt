@@ -6,6 +6,28 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
+
+import androidx.compose.animation.AnimatedContent
+
+enum class ToolScreen {
+    NONE,
+    PRIVACY_WIPE,
+    SOCKET_LATENCY,
+    CAMERA_DIAGNOSTIC,
+    IPC_SANDBOX,
+    STEGO_CRYPT,
+    PARTICLE_BENCHMARK,
+    PAYLOAD_SANITIZER,
+    BATTERY_TELEMETRY,
+    JWT_INSPECTOR,
+    SSL_CERT_AUDITOR,
+    HASH_GENERATOR,
+    OVERLAY_SENTRY,
+    EXIF_STRIPPER,
+    LAN_SCANNER,
+    ACOUSTIC_GENERATOR
+}
+
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -593,70 +615,187 @@ fun SecurityHealthScoreCard(score: Int) {
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun ToolsTab(viewModel: MainViewModel) {
+    var currentTool by remember { mutableStateOf(ToolScreen.NONE) }
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val overlayApps by viewModel.overlayApps.collectAsState()
     val appReports by viewModel.appReports.collectAsState()
-    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
 
     androidx.compose.material3.Scaffold(
-        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            item {
-                Text(
-                    text = "Security & Telemetry Tools",
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(bottom = 8.dp)
+        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) },
+        topBar = {
+            if (currentTool != ToolScreen.NONE) {
+                androidx.compose.material3.TopAppBar(
+                    title = { Text(currentTool.name.replace("_", " ")) },
+                    navigationIcon = {
+                        androidx.compose.material3.IconButton(onClick = { currentTool = ToolScreen.NONE }) {
+                            androidx.compose.material3.Icon(
+                                imageVector = androidx.compose.material.icons.Icons.AutoMirrored.Rounded.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                    }
                 )
             }
-            item {
-                PrivacyWipeTool(viewModel, snackbarHostState)
-            }
-            item {
-                SocketLatencyTool()
-            }
-            item {
-                CameraDiagnosticCard()
-            }
-            item {
-                IpcSandboxCard(appReports)
-            }
-            item {
-                StegoCryptTool()
-            }
-            item {
-                ParticleBenchmarkTool()
-            }
-            item {
-                PayloadSanitizerTool()
-            }
-            item {
-                BatteryTelemetryCard()
-            }
-            item {
-                JwtInspectorCard()
-            }
-            item {
-                SslCertAuditorCard()
-            }
-            item {
-                HashGeneratorCard()
-            }
-            item {
-                OverlaySentryCard(overlayApps)
+        }
+    ) { padding ->
+        Box(modifier = Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .padding(bottom = if (currentTool != ToolScreen.NONE) 80.dp else 0.dp)
+        ) {
+            AnimatedContent(
+                targetState = currentTool,
+                label = "tool_transition"
+            ) { targetTool ->
+                if (targetTool == ToolScreen.NONE) {
+                    ToolsMatrix(
+                        viewModel = viewModel,
+                        onToolSelected = { currentTool = it }
+                    )
+                } else {
+                    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+                        when (targetTool) {
+                            ToolScreen.PRIVACY_WIPE -> PrivacyWipeTool(viewModel, snackbarHostState)
+                            ToolScreen.SOCKET_LATENCY -> SocketLatencyTool()
+                            ToolScreen.CAMERA_DIAGNOSTIC -> CameraDiagnosticCard()
+                            ToolScreen.IPC_SANDBOX -> IpcSandboxCard(appReports)
+                            ToolScreen.STEGO_CRYPT -> StegoCryptTool()
+                            ToolScreen.PARTICLE_BENCHMARK -> ParticleBenchmarkTool()
+                            ToolScreen.PAYLOAD_SANITIZER -> PayloadSanitizerTool()
+                            ToolScreen.BATTERY_TELEMETRY -> BatteryTelemetryCard()
+                            ToolScreen.JWT_INSPECTOR -> JwtInspectorCard()
+                            ToolScreen.SSL_CERT_AUDITOR -> SslCertAuditorCard()
+                            ToolScreen.HASH_GENERATOR -> HashGeneratorCard()
+                            ToolScreen.OVERLAY_SENTRY -> OverlaySentryCard(overlayApps)
+                            ToolScreen.EXIF_STRIPPER -> ExifStripperTool()
+                            ToolScreen.LAN_SCANNER -> LanScannerTool()
+                            ToolScreen.ACOUSTIC_GENERATOR -> AcousticGeneratorTool()
+                            else -> {}
+                        }
+                    }
+                }
             }
         }
     }
 }
+
+
+@Composable
+fun ToolsMatrix(viewModel: MainViewModel, onToolSelected: (ToolScreen) -> Unit) {
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 16.dp),
+        contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        item {
+            Text(
+                text = "Tools Hub",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+        item {
+            ToolCategoryGroup(
+                title = "Cryptography & Data",
+                tools = listOf(
+                    ToolItem("StegoCrypt", "Image Steganography", ToolScreen.STEGO_CRYPT, androidx.compose.material.icons.Icons.Default.Lock),
+                    ToolItem("JWT Inspector", "Token Analysis", ToolScreen.JWT_INSPECTOR, androidx.compose.material.icons.Icons.Default.Code),
+                    ToolItem("Hash Generator", "Checksum Utility", ToolScreen.HASH_GENERATOR, androidx.compose.material.icons.Icons.Default.Calculate),
+                    ToolItem("Payload Sanitizer", "XSS/SQLi Clean", ToolScreen.PAYLOAD_SANITIZER, androidx.compose.material.icons.Icons.Default.CleaningServices)
+                ),
+                onToolSelected = onToolSelected
+            )
+        }
+        item {
+            ToolCategoryGroup(
+                title = "Network & Recon",
+                tools = listOf(
+                    ToolItem("Active Socket Prober", "Latency & Connect", ToolScreen.SOCKET_LATENCY, androidx.compose.material.icons.Icons.Default.NetworkCheck),
+                    ToolItem("SSL Cert Auditor", "Certificate Chain", ToolScreen.SSL_CERT_AUDITOR, androidx.compose.material.icons.Icons.Default.Security),
+                    ToolItem("LAN Subnet Mapper", "Local Host Scan", ToolScreen.LAN_SCANNER, androidx.compose.material.icons.Icons.Default.Lan)
+                ),
+                onToolSelected = onToolSelected
+            )
+        }
+        item {
+            ToolCategoryGroup(
+                title = "Privacy & Defense",
+                tools = listOf(
+                    ToolItem("Panic Wipe", "Data Destruction", ToolScreen.PRIVACY_WIPE, androidx.compose.material.icons.Icons.Default.DeleteForever),
+                    ToolItem("Overlay Sentry", "Tapjacking Detect", ToolScreen.OVERLAY_SENTRY, androidx.compose.material.icons.Icons.Default.Layers),
+                    ToolItem("EXIF Stripper", "Metadata Sanitization", ToolScreen.EXIF_STRIPPER, androidx.compose.material.icons.Icons.Default.ImageNotSupported),
+                    ToolItem("IPC Sandbox", "Intent Risk Check", ToolScreen.IPC_SANDBOX, androidx.compose.material.icons.Icons.Default.SafetyCheck)
+                ),
+                onToolSelected = onToolSelected
+            )
+        }
+        item {
+            ToolCategoryGroup(
+                title = "Hardware & Sound",
+                tools = listOf(
+                    ToolItem("Adreno Benchmark", "Particle Simulation", ToolScreen.PARTICLE_BENCHMARK, androidx.compose.material.icons.Icons.Default.Speed),
+                    ToolItem("SuperVOOC Scope", "Battery Telemetry", ToolScreen.BATTERY_TELEMETRY, androidx.compose.material.icons.Icons.Default.BatteryChargingFull),
+                    ToolItem("Acoustic Generator", "Frequency Tone", ToolScreen.ACOUSTIC_GENERATOR, androidx.compose.material.icons.Icons.Default.VolumeUp),
+                    ToolItem("Macro Viewfinder", "Camera Diagnostics", ToolScreen.CAMERA_DIAGNOSTIC, androidx.compose.material.icons.Icons.Default.CameraAlt)
+                ),
+                onToolSelected = onToolSelected
+            )
+        }
+    }
+}
+
+data class ToolItem(val title: String, val desc: String, val screen: ToolScreen, val icon: androidx.compose.ui.graphics.vector.ImageVector)
+
+@Composable
+fun ToolCategoryGroup(title: String, tools: List<ToolItem>, onToolSelected: (ToolScreen) -> Unit) {
+    Column {
+        Text(text = title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 8.dp))
+        val chunkedTools = tools.chunked(2)
+        chunkedTools.forEach { rowTools ->
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                rowTools.forEach { tool ->
+                    ToolCard(tool = tool, onToolSelected = onToolSelected, modifier = Modifier.weight(1f))
+                }
+                if (rowTools.size == 1) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ToolCard(tool: ToolItem, onToolSelected: (ToolScreen) -> Unit, modifier: Modifier = Modifier) {
+    Card(
+        modifier = modifier
+            .height(110.dp)
+            .clickable { onToolSelected(tool.screen) },
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.Start
+        ) {
+            Icon(imageVector = tool.icon, contentDescription = tool.title, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = tool.title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(text = tool.desc, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
+        }
+    }
+}
+
+
 @Composable
 fun BatteryTelemetryCard() {
     val context = LocalContext.current
@@ -764,37 +903,42 @@ fun IpcSandboxCard(appReports: List<AppRiskReport>) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(text = "Safe Intent & IPC Sandbox", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
             Spacer(modifier = Modifier.height(8.dp))
-            val appsWithExported = appReports.filter { it.exportedComponents.isNotEmpty() }
-            if (appsWithExported.isEmpty()) {
-                 Text("No apps with exported components found.")
+
+            if (appReports.isEmpty()) {
+                Text("No app scan results available. Please run a scan from the Auditor tab first.", color = MaterialTheme.colorScheme.error)
             } else {
-                LazyColumn(modifier = Modifier.height(200.dp)) {
-                    items(appsWithExported) { report ->
-                        Text(
-                            text = report.packageName,
-                            modifier = Modifier.fillMaxWidth().clickable { selectedReport = report }.padding(8.dp),
-                            color = if (selectedReport == report) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                        )
+                val appsWithExported = appReports.filter { it.exportedComponents.isNotEmpty() }
+                if (appsWithExported.isEmpty()) {
+                     Text("No apps with exported components found.")
+                } else {
+                    LazyColumn(modifier = Modifier.height(200.dp)) {
+                        items(appsWithExported) { report ->
+                            Text(
+                                text = report.packageName,
+                                modifier = Modifier.fillMaxWidth().clickable { selectedReport = report }.padding(8.dp),
+                                color = if (selectedReport == report) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
                     }
-                }
-                selectedReport?.let { report ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = "Selected: ${report.packageName}", fontWeight = FontWeight.SemiBold)
-                    report.exportedComponents.forEach { component ->
-                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text(text = component, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                            Button(onClick = {
-                                try {
-                                    val intent = android.content.Intent()
-                                    if (component.startsWith("Activity: ")) {
-                                        intent.setClassName(report.packageName, component.removePrefix("Activity: "))
-                                        context.startActivity(intent)
+                    selectedReport?.let { report ->
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(text = "Selected: ${report.packageName}", fontWeight = FontWeight.SemiBold)
+                        report.exportedComponents.forEach { component ->
+                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text(text = component, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                                Button(onClick = {
+                                    try {
+                                        val intent = android.content.Intent()
+                                        if (component.startsWith("Activity: ")) {
+                                            intent.setClassName(report.packageName, component.removePrefix("Activity: "))
+                                            context.startActivity(intent)
+                                        }
+                                    } catch (e: Exception) {
+                                        android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
                                     }
-                                } catch (e: Exception) {
-                                    android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                }) {
+                                    Text("Test Launch")
                                 }
-                            }) {
-                                Text("Test Launch")
                             }
                         }
                     }
