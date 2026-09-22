@@ -234,7 +234,6 @@ fun DashboardTab(
             }
         }
 
-
 @Composable
 fun AuditorTab(reports: List<AppRiskReport>) {
     var searchQuery by remember { mutableStateOf("") }
@@ -269,24 +268,45 @@ fun AuditorTab(reports: List<AppRiskReport>) {
 @Composable
 fun DeviceRaspTab() {
     val context = LocalContext.current
-    val view = LocalView.current
-    val refreshRate = view.display?.refreshRate ?: 0f
-    val isDebuggerConnected = android.os.Debug.isDebuggerConnected()
-    val isRooted = java.io.File("/system/bin/su").exists()
 
-    val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-    val network = connectivityManager.activeNetwork
-    val capabilities = connectivityManager.getNetworkCapabilities(network)
+    val refreshRate = try {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            context.display?.mode?.refreshRate ?: 60f
+        } else {
+            60f
+        }
+    } catch (e: Throwable) { 60f }
 
-    val isWifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
-    val isCellular = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
-    val isVpn = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+    val isDebuggerConnected = try {
+        android.os.Debug.isDebuggerConnected()
+    } catch (e: Throwable) { false }
 
-    val networkStatus = when {
-        isVpn -> "VPN Active"
-        isWifi -> "Wi-Fi"
-        isCellular -> "Cellular"
-        else -> "No Active Network"
+    val isRooted = try {
+        val paths = arrayOf("/system/bin/su", "/system/xbin/su", "/sbin/su", "/system/app/Superuser.apk")
+        paths.any { path -> try { java.io.File(path).exists() } catch (e: Throwable) { false } }
+    } catch (e: Throwable) { false }
+
+    val isDeveloperModeEnabled = try {
+        android.provider.Settings.Global.getInt(context.contentResolver, android.provider.Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) == 1
+    } catch (e: Throwable) { false }
+
+    val networkStatus = try {
+        val cm = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val activeNet = cm?.activeNetwork
+        val caps = cm?.getNetworkCapabilities(activeNet)
+
+        val isVpn = try { caps?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true } catch (e: Throwable) { false }
+        val isWifi = try { caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true } catch (e: Throwable) { false }
+        val isCellular = try { caps?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true } catch (e: Throwable) { false }
+
+        when {
+            isVpn -> "VPN Active"
+            isWifi -> "Wi-Fi"
+            isCellular -> "Cellular"
+            else -> "No Active Network"
+        }
+    } catch (e: Throwable) {
+        "Unavailable"
     }
 
     Column(
@@ -314,6 +334,13 @@ fun DeviceRaspTab() {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text("Root Presence", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                 Text("Status: ${if (isRooted) "Root Found (su binary exists)" else "Not Rooted"}")
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = if (isDeveloperModeEnabled) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Developer Mode", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Status: ${if (isDeveloperModeEnabled) "Enabled (Danger)" else "Disabled"}")
             }
         }
 
