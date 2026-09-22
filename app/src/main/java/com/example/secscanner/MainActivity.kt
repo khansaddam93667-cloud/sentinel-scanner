@@ -24,6 +24,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -193,7 +195,7 @@ fun DashboardTab(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(bottom = 80.dp)
+                    contentPadding = PaddingValues(bottom = 120.dp)
                 ) {
                     if (masvsReports.isNotEmpty()) {
                         val groupedReports = masvsReports.groupBy { report ->
@@ -265,8 +267,8 @@ fun AuditorTab(reports: List<AppRiskReport>) {
         }
 
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 80.dp)
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 120.dp)
         ) {
             items(filteredReports) { report ->
                 AppReportItem(report)
@@ -323,6 +325,8 @@ fun DeviceRaspTab() {
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
+            .padding(bottom = 100.dp)
+            .verticalScroll(rememberScrollState())
     ) {
         Text("Device & RASP Status", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
 
@@ -596,36 +600,57 @@ fun SecurityHealthScoreCard(score: Int) {
 fun ToolsTab(viewModel: MainViewModel) {
     val overlayApps by viewModel.overlayApps.collectAsState()
     val appReports by viewModel.appReports.collectAsState()
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
 
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        item {
-            Text(
-                text = "Security & Telemetry Tools",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
-        item {
-            BatteryTelemetryCard()
-        }
-        item {
-            OverlaySentryCard(overlayApps)
-        }
-        item {
-            IpcSandboxCard(appReports)
-        }
-        item {
-            CameraDiagnosticCard()
+    androidx.compose.material3.Scaffold(
+        snackbarHost = { androidx.compose.material3.SnackbarHost(hostState = snackbarHostState) }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 120.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            item {
+                Text(
+                    text = "Security & Telemetry Tools",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+            item {
+                PrivacyWipeTool(viewModel, snackbarHostState)
+            }
+            item {
+                SocketLatencyTool()
+            }
+            item {
+                CameraDiagnosticCard()
+            }
+            item {
+                IpcSandboxCard(appReports)
+            }
+            item {
+                StegoCryptTool()
+            }
+            item {
+                ParticleBenchmarkTool()
+            }
+            item {
+                PayloadSanitizerTool()
+            }
+            item {
+                BatteryTelemetryCard()
+            }
+            item {
+                OverlaySentryCard(overlayApps)
+            }
         }
     }
 }
-
 @Composable
 fun BatteryTelemetryCard() {
     val context = LocalContext.current
