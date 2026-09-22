@@ -10,7 +10,9 @@ data class AppRiskReport(
     val packageName: String,
     val appName: String,
     val score: Int,
-    val risks: List<String>
+    val risks: List<String>,
+    val exportedComponents: List<String>,
+    val dangerousPermissions: List<String>
 )
 
 class ScannerEngine(private val packageManager: PackageManager) {
@@ -35,12 +37,13 @@ class ScannerEngine(private val packageManager: PackageManager) {
         val risks = mutableListOf<String>()
         var score = 0
         val appInfo = packageInfo.applicationInfo
+        val exportedComponents = mutableListOf<String>()
 
         // 1. Exported components
         var hasExported = false
-        packageInfo.activities?.forEach { if (it.exported) hasExported = true }
-        packageInfo.services?.forEach { if (it.exported) hasExported = true }
-        packageInfo.receivers?.forEach { if (it.exported) hasExported = true }
+        packageInfo.activities?.forEach { if (it.exported) { hasExported = true; exportedComponents.add("Activity: ${it.name}") } }
+        packageInfo.services?.forEach { if (it.exported) { hasExported = true; exportedComponents.add("Service: ${it.name}") } }
+        packageInfo.receivers?.forEach { if (it.exported) { hasExported = true; exportedComponents.add("Receiver: ${it.name}") } }
         if (hasExported) {
             risks.add("Exported Components Found")
             score += 2
@@ -81,7 +84,9 @@ class ScannerEngine(private val packageManager: PackageManager) {
             packageName = packageInfo.packageName,
             appName = appName,
             score = score,
-            risks = risks
+            risks = risks,
+            exportedComponents = exportedComponents,
+            dangerousPermissions = foundHighRiskPerms
         )
     }
 }

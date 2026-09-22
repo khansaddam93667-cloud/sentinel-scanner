@@ -32,6 +32,19 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.automirrored.rounded.List
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Settings
+import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.provider.Settings as AndroidSettings
+import android.net.Uri
 import com.example.secscanner.ui.theme.SecScannerTheme
 
 class MainActivity : ComponentActivity() {
@@ -81,6 +94,8 @@ fun MainScreen(viewModel: MainViewModel) {
         (passed.toFloat() / masvsReports.size * 100).toInt()
     }
 
+    var currentTab by remember { mutableStateOf(0) }
+
     Scaffold(
         floatingActionButton = {
             ExtendedFloatingActionButton(
@@ -95,9 +110,49 @@ fun MainScreen(viewModel: MainViewModel) {
                     }
                 }
             )
+        },
+        bottomBar = {
+            NavigationBar {
+                NavigationBarItem(
+                    selected = currentTab == 0,
+                    onClick = { currentTab = 0 },
+                    icon = { Icon(Icons.Default.Info, contentDescription = "Dashboard") },
+                    label = { Text("Dashboard") }
+                )
+                NavigationBarItem(
+                    selected = currentTab == 1,
+                    onClick = { currentTab = 1 },
+                    icon = { Icon(Icons.AutoMirrored.Rounded.List, contentDescription = "Auditor") },
+                    label = { Text("Auditor") }
+                )
+                NavigationBarItem(
+                    selected = currentTab == 2,
+                    onClick = { currentTab = 2 },
+                    icon = { Icon(Icons.Default.Warning, contentDescription = "Device & RASP") },
+                    label = { Text("Device & RASP") }
+                )
+            }
         }
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
+            when (currentTab) {
+                0 -> DashboardTab(healthScore, isRecording, isSecureModeEnabled, viewModel, isScanning, masvsReports)
+                1 -> AuditorTab(reports)
+                2 -> DeviceRaspTab()
+            }
+        }
+    }
+}
+
+@Composable
+fun DashboardTab(
+    healthScore: Int,
+    isRecording: Boolean,
+    isSecureModeEnabled: Boolean,
+    viewModel: MainViewModel,
+    isScanning: Boolean,
+    masvsReports: List<MasvsControlResult>
+) {
 
             SecurityHealthScoreCard(score = healthScore)
 
@@ -175,11 +230,97 @@ fun MainScreen(viewModel: MainViewModel) {
                             )
                         }
                     }
-
-                    items(reports) { report ->
-                        AppReportItem(report)
-                    }
                 }
+            }
+        }
+
+
+@Composable
+fun AuditorTab(reports: List<AppRiskReport>) {
+    var searchQuery by remember { mutableStateOf("") }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        TextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            placeholder = { Text("Search apps...") },
+            singleLine = true
+        )
+
+        val filteredReports = reports.filter {
+            it.appName.contains(searchQuery, ignoreCase = true) ||
+            it.packageName.contains(searchQuery, ignoreCase = true)
+        }
+
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
+            items(filteredReports) { report ->
+                AppReportItem(report)
+            }
+        }
+    }
+}
+
+@Composable
+fun DeviceRaspTab() {
+    val context = LocalContext.current
+    val view = LocalView.current
+    val refreshRate = view.display?.refreshRate ?: 0f
+    val isDebuggerConnected = android.os.Debug.isDebuggerConnected()
+    val isRooted = java.io.File("/system/bin/su").exists()
+
+    val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = connectivityManager.activeNetwork
+    val capabilities = connectivityManager.getNetworkCapabilities(network)
+
+    val isWifi = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true
+    val isCellular = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) == true
+    val isVpn = capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_VPN) == true
+
+    val networkStatus = when {
+        isVpn -> "VPN Active"
+        isWifi -> "Wi-Fi"
+        isCellular -> "Cellular"
+        else -> "No Active Network"
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp)
+    ) {
+        Text("Device & RASP Status", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+
+        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Display", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Refresh Rate: ${refreshRate}Hz")
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = if (isDebuggerConnected) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Debugger", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Status: ${if (isDebuggerConnected) "Connected (Danger)" else "Not Connected"}")
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), colors = CardDefaults.cardColors(containerColor = if (isRooted) MaterialTheme.colorScheme.errorContainer else MaterialTheme.colorScheme.surfaceVariant)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Root Presence", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Status: ${if (isRooted) "Root Found (su binary exists)" else "Not Rooted"}")
+            }
+        }
+
+        Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text("Network Status", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("Active Network: $networkStatus")
             }
         }
     }
@@ -289,6 +430,7 @@ fun MasvsReportItem(report: MasvsControlResult) {
 @Composable
 fun AppReportItem(report: AppRiskReport) {
     var expanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Card(
         modifier = Modifier
@@ -329,12 +471,42 @@ fun AppReportItem(report: AppRiskReport) {
                             Text(text = "• $risk", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp, top = 4.dp))
                         }
                     }
+
+                    if (report.exportedComponents.isNotEmpty()) {
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(text = "Exported Components:", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.bodyMedium)
+                        report.exportedComponents.forEach { component ->
+                            Text(text = "• $component", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
+                        }
+                    }
+
+                    if (report.dangerousPermissions.isNotEmpty()) {
+                        Divider(modifier = Modifier.padding(vertical = 8.dp))
+                        Text(text = "Dangerous Permissions:", fontWeight = FontWeight.SemiBold, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
+                        report.dangerousPermissions.forEach { permission ->
+                            Text(text = "• $permission", style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(start = 8.dp, top = 2.dp))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Button(
+                        onClick = {
+                            val intent = Intent(AndroidSettings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", report.packageName, null)
+                            }
+                            context.startActivity(intent)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Default.Settings, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Open Settings")
+                    }
                 }
             }
         }
     }
 }
-
 @Composable
 fun SecurityHealthScoreCard(score: Int) {
     Card(
