@@ -7,27 +7,6 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 
-import androidx.compose.animation.AnimatedContent
-
-enum class ToolScreen {
-    NONE,
-    PRIVACY_WIPE,
-    SOCKET_LATENCY,
-    CAMERA_DIAGNOSTIC,
-    IPC_SANDBOX,
-    STEGO_CRYPT,
-    PARTICLE_BENCHMARK,
-    PAYLOAD_SANITIZER,
-    BATTERY_TELEMETRY,
-    JWT_INSPECTOR,
-    SSL_CERT_AUDITOR,
-    HASH_GENERATOR,
-    OVERLAY_SENTRY,
-    EXIF_STRIPPER,
-    LAN_SCANNER,
-    ACOUSTIC_GENERATOR
-}
-
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -50,6 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -60,6 +40,23 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.Calculate
+import androidx.compose.material.icons.filled.CleaningServices
+import androidx.compose.material.icons.filled.NetworkCheck
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Lan
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Layers
+import androidx.compose.material.icons.filled.ImageNotSupported
+import androidx.compose.material.icons.filled.SafetyCheck
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.BatteryChargingFull
+import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.Warning
@@ -74,6 +71,26 @@ import android.net.NetworkCapabilities
 import android.provider.Settings as AndroidSettings
 import android.net.Uri
 import com.example.secscanner.ui.theme.SecScannerTheme
+
+enum class ToolScreen {
+    NONE,
+    PRIVACY_WIPE,
+    SOCKET_LATENCY,
+    CAMERA_DIAGNOSTIC,
+    IPC_SANDBOX,
+    STEGO_CRYPT,
+    PARTICLE_BENCHMARK,
+    PAYLOAD_SANITIZER,
+    BATTERY_TELEMETRY,
+    JWT_INSPECTOR,
+    SSL_CERT_AUDITOR,
+    HASH_GENERATOR,
+    OVERLAY_SENTRY,
+    EXIF_STRIPPER,
+    LAN_SCANNER,
+    ACOUSTIC_GENERATOR
+}
+
 
 class MainActivity : ComponentActivity() {
     private val viewModel: MainViewModel by viewModels()
