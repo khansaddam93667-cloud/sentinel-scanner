@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import android.content.pm.PackageInfo
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -22,6 +23,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning: StateFlow<Boolean> = _isScanning.asStateFlow()
+
+    private val _overlayApps = MutableStateFlow<List<PackageInfo>>(emptyList())
+    val overlayApps: StateFlow<List<PackageInfo>> = _overlayApps.asStateFlow()
+
+    init {
+        fetchOverlayApps()
+    }
+
+    fun fetchOverlayApps() {
+        viewModelScope.launch {
+            _overlayApps.value = scannerEngine.getOverlayApps()
+        }
+    }
 
     val isScreenRecording = screenMonitor.isRecording
 

@@ -40,6 +40,9 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Build
+import android.content.pm.PackageInfo
+import androidx.compose.runtime.DisposableEffect
 import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
@@ -131,6 +134,12 @@ fun MainScreen(viewModel: MainViewModel) {
                     icon = { Icon(Icons.Default.Warning, contentDescription = "Device & RASP") },
                     label = { Text("Device & RASP") }
                 )
+                NavigationBarItem(
+                    selected = currentTab == 3,
+                    onClick = { currentTab = 3 },
+                    icon = { Icon(Icons.Default.Build, contentDescription = "Tools") },
+                    label = { Text("Tools") }
+                )
             }
         }
     ) { paddingValues ->
@@ -139,6 +148,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 0 -> DashboardTab(healthScore, isRecording, isSecureModeEnabled, viewModel, isScanning, masvsReports)
                 1 -> AuditorTab(reports)
                 2 -> DeviceRaspTab()
+                3 -> ToolsTab(viewModel)
             }
         }
     }
@@ -577,6 +587,247 @@ fun SecurityHealthScoreCard(score: Int) {
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun ToolsTab(viewModel: MainViewModel) {
+    val overlayApps by viewModel.overlayApps.collectAsState()
+    val appReports by viewModel.appReports.collectAsState()
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        item {
+            Text(
+                text = "Security & Telemetry Tools",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+        }
+        item {
+            BatteryTelemetryCard()
+        }
+        item {
+            OverlaySentryCard(overlayApps)
+        }
+        item {
+            IpcSandboxCard(appReports)
+        }
+        item {
+            CameraDiagnosticCard()
+        }
+    }
+}
+
+@Composable
+fun BatteryTelemetryCard() {
+    val context = LocalContext.current
+    var voltage by remember { mutableStateOf(0) }
+    var temperature by remember { mutableStateOf(0) }
+    var status by remember { mutableStateOf(-1) }
+    var plugType by remember { mutableStateOf(-1) }
+    var level by remember { mutableStateOf(0) }
+    var scale by remember { mutableStateOf(100) }
+
+    DisposableEffect(context) {
+        val receiver = object : android.content.BroadcastReceiver() {
+            override fun onReceive(context: android.content.Context?, intent: android.content.Intent?) {
+                if (intent?.action == android.content.Intent.ACTION_BATTERY_CHANGED) {
+                    voltage = intent.getIntExtra(android.os.BatteryManager.EXTRA_VOLTAGE, 0)
+                    temperature = intent.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, 0)
+                    status = intent.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1)
+                    plugType = intent.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED, -1)
+                    level = intent.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1)
+                    scale = intent.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1)
+                }
+            }
+        }
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_BATTERY_CHANGED)
+        context.registerReceiver(receiver, filter)
+        onDispose {
+            context.unregisterReceiver(receiver)
+        }
+    }
+
+    val vStr = String.format("%.2f V", voltage / 1000f)
+    val tStr = String.format("%.1f °C", temperature / 10f)
+    val chargingStatus = when (status) {
+        android.os.BatteryManager.BATTERY_STATUS_CHARGING -> "Charging"
+        android.os.BatteryManager.BATTERY_STATUS_DISCHARGING -> "Discharging"
+        android.os.BatteryManager.BATTERY_STATUS_FULL -> "Full"
+        android.os.BatteryManager.BATTERY_STATUS_NOT_CHARGING -> "Not Charging"
+        else -> "Unknown"
+    }
+    val plugStatus = when (plugType) {
+        android.os.BatteryManager.BATTERY_PLUGGED_AC -> "AC"
+        android.os.BatteryManager.BATTERY_PLUGGED_USB -> "USB"
+        android.os.BatteryManager.BATTERY_PLUGGED_WIRELESS -> "Wireless"
+        else -> "Unplugged"
+    }
+    val batteryPct = if (scale > 0) level * 100 / scale.toFloat() else 0f
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "SuperVOOC & Thermal Telemetry Scope", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Voltage: $vStr")
+            Text(text = "Temperature: $tStr")
+            Text(text = "Status: $chargingStatus ($plugStatus)")
+            Spacer(modifier = Modifier.height(8.dp))
+            LinearProgressIndicator(progress = { batteryPct / 100f }, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
+fun OverlaySentryCard(overlayApps: List<PackageInfo>) {
+    val context = LocalContext.current
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "Overlay & Tapjacking Sentry", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            if (overlayApps.isEmpty()) {
+                Text(text = "No apps with SYSTEM_ALERT_WINDOW permission found.")
+            } else {
+                overlayApps.forEach { pkg ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = pkg.packageName, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = {
+                            val intent = android.content.Intent(android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${pkg.packageName}"))
+                            context.startActivity(intent)
+                        }) {
+                            Text("Manage")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun IpcSandboxCard(appReports: List<AppRiskReport>) {
+    val context = LocalContext.current
+    var selectedReport by remember { mutableStateOf<AppRiskReport?>(null) }
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "Safe Intent & IPC Sandbox", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            val appsWithExported = appReports.filter { it.exportedComponents.isNotEmpty() }
+            if (appsWithExported.isEmpty()) {
+                 Text("No apps with exported components found.")
+            } else {
+                LazyColumn(modifier = Modifier.height(200.dp)) {
+                    items(appsWithExported) { report ->
+                        Text(
+                            text = report.packageName,
+                            modifier = Modifier.fillMaxWidth().clickable { selectedReport = report }.padding(8.dp),
+                            color = if (selectedReport == report) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                selectedReport?.let { report ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = "Selected: ${report.packageName}", fontWeight = FontWeight.SemiBold)
+                    report.exportedComponents.forEach { component ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text(text = component, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                            Button(onClick = {
+                                try {
+                                    val intent = android.content.Intent()
+                                    if (component.startsWith("Activity: ")) {
+                                        intent.setClassName(report.packageName, component.removePrefix("Activity: "))
+                                        context.startActivity(intent)
+                                    }
+                                } catch (e: Exception) {
+                                    android.widget.Toast.makeText(context, "Launch failed: ${e.message}", android.widget.Toast.LENGTH_SHORT).show()
+                                }
+                            }) {
+                                Text("Test Launch")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CameraDiagnosticCard() {
+    val context = LocalContext.current
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+    var cameraIds by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isViewfinderActive by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val cameraManager = context.getSystemService(android.content.Context.CAMERA_SERVICE) as android.hardware.camera2.CameraManager
+        try {
+            cameraIds = cameraManager.cameraIdList.toList()
+        } catch (e: Exception) {
+        }
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(text = "Hardware Camera Diagnostic", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(text = "Available Camera IDs: ${cameraIds.joinToString(", ")}")
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(onClick = { isViewfinderActive = !isViewfinderActive }) {
+                Text(if (isViewfinderActive) "Close Viewfinder" else "Launch Viewfinder")
+            }
+            if (isViewfinderActive) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
+                    androidx.compose.ui.viewinterop.AndroidView(
+                        factory = { ctx ->
+                            androidx.camera.view.PreviewView(ctx).apply {
+                                val cameraProviderFuture = androidx.camera.lifecycle.ProcessCameraProvider.getInstance(ctx)
+                                cameraProviderFuture.addListener({
+                                    val cameraProvider = cameraProviderFuture.get()
+                                    val preview = androidx.camera.core.Preview.Builder().build().also {
+                                        it.setSurfaceProvider(surfaceProvider)
+                                    }
+                                    val cameraSelector = androidx.camera.core.CameraSelector.DEFAULT_BACK_CAMERA
+                                    try {
+                                        cameraProvider.unbindAll()
+                                        cameraProvider.bindToLifecycle(lifecycleOwner, cameraSelector, preview)
+                                    } catch(exc: Exception) {
+                                    }
+                                }, androidx.core.content.ContextCompat.getMainExecutor(ctx))
+                            }
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+                        drawLine(color = Color.Red, start = androidx.compose.ui.geometry.Offset(size.width / 2, 0f), end = androidx.compose.ui.geometry.Offset(size.width / 2, size.height), strokeWidth = 2f)
+                        drawLine(color = Color.Red, start = androidx.compose.ui.geometry.Offset(0f, size.height / 2), end = androidx.compose.ui.geometry.Offset(size.width, size.height / 2), strokeWidth = 2f)
+                    }
+                }
             }
         }
     }

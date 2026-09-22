@@ -17,6 +17,13 @@ data class AppRiskReport(
 
 class ScannerEngine(private val packageManager: PackageManager) {
 
+    suspend fun getOverlayApps(): List<PackageInfo> = withContext(Dispatchers.IO) {
+        val installedPackages = packageManager.getInstalledPackages(PackageManager.GET_PERMISSIONS)
+        installedPackages.filter { pkg ->
+            pkg.requestedPermissions?.contains("android.permission.SYSTEM_ALERT_WINDOW") == true
+        }
+    }
+
     suspend fun scanApps(): List<AppRiskReport> = withContext(Dispatchers.IO) {
         val installedPackages = packageManager.getInstalledPackages(
             PackageManager.GET_PERMISSIONS or
